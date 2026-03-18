@@ -22,7 +22,6 @@ CREATE TYPE task_priority AS ENUM ('Low', 'Medium', 'High', 'Urgent');
 CREATE TYPE task_status AS ENUM ('Open', 'InProgress', 'Completed', 'Cancelled');
 CREATE TYPE case_priority AS ENUM ('Normal', 'High', 'Critical');
 CREATE TYPE case_status AS ENUM ('Open', 'InProgress', 'Escalated', 'Resolved', 'Closed');
-CREATE TYPE ticket_status AS ENUM ('Open', 'Pending', 'Resolved', 'Closed');
 CREATE TYPE scoring_run_status AS ENUM ('Running', 'Completed', 'Failed');
 CREATE TYPE sentiment AS ENUM ('Positive', 'Neutral', 'Negative');
 
@@ -242,82 +241,7 @@ CREATE INDEX idx_cases_assigned ON cases (assigned_to, status);
 CREATE INDEX idx_cases_priority ON cases (priority, status) WHERE status IN ('Open', 'InProgress', 'Escalated');
 
 -- =============================================================================
--- 9. NPS SCORES  (collected quarterly)
--- =============================================================================
-
-CREATE TABLE nps_scores (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    account_id  UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-    score       INT NOT NULL CHECK (score BETWEEN 0 AND 10),
-    feedback    TEXT,
-    quarter     VARCHAR(7) NOT NULL,        -- e.g. '2026-Q1'
-    collected_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_nps_account  ON nps_scores (account_id, collected_at DESC);
-CREATE INDEX idx_nps_quarter  ON nps_scores (quarter);
-
--- =============================================================================
--- 10. INTEGRATIONS  (Mail, Zoom, Catering vendors per account)
--- =============================================================================
-
-CREATE TABLE integrations (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    account_id      UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-    integration_name VARCHAR(100) NOT NULL,   -- 'Mail', 'Zoom', 'CateringVendor', etc.
-    is_active        BOOLEAN NOT NULL DEFAULT TRUE,
-    connected_at     TIMESTAMPTZ,
-    disconnected_at  TIMESTAMPTZ,
-    config           JSONB,                   -- integration-specific settings
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (account_id, integration_name)
-);
-
-CREATE INDEX idx_integrations_account ON integrations (account_id);
-CREATE INDEX idx_integrations_active  ON integrations (account_id, is_active) WHERE is_active = TRUE;
-
--- =============================================================================
--- 11. FEATURE ADOPTION  (AI agenda builder, live polling, post-event analytics)
--- =============================================================================
-
-CREATE TABLE feature_adoption (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    account_id      UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-    feature_name    VARCHAR(200) NOT NULL,   -- 'ai_agenda_builder', 'live_polling', 'post_event_analytics'
-    is_adopted      BOOLEAN NOT NULL DEFAULT FALSE,
-    first_used_at   TIMESTAMPTZ,
-    last_used_at    TIMESTAMPTZ,
-    usage_count     INT NOT NULL DEFAULT 0,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (account_id, feature_name)
-);
-
-CREATE INDEX idx_feature_account ON feature_adoption (account_id);
-CREATE INDEX idx_feature_name    ON feature_adoption (feature_name, is_adopted);
-
--- =============================================================================
--- 12. SUPPORT TICKETS
--- =============================================================================
-
-CREATE TABLE support_tickets (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    account_id      UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-    subject         VARCHAR(500) NOT NULL,
-    description     TEXT,
-    status          ticket_status NOT NULL DEFAULT 'Open',
-    assigned_to     UUID REFERENCES csm_managers(id) ON DELETE SET NULL,
-    resolved_at     TIMESTAMPTZ,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_tickets_account ON support_tickets (account_id);
-CREATE INDEX idx_tickets_status  ON support_tickets (status) WHERE status IN ('Open', 'Pending');
-
--- =============================================================================
--- 13. WEEKLY REPORTS  (Workflow 4 — Weekly Reporting)
+-- 9. WEEKLY REPORTS  (Workflow 4 — Weekly Reporting)
 -- =============================================================================
 
 CREATE TABLE weekly_reports (
