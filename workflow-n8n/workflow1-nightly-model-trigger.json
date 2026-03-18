@@ -1,0 +1,398 @@
+{
+  "name": "WF1 — Nightly Model Trigger",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 2 * * *" }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Nightly 02:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO scoring_runs (status, started_at)\nVALUES ('Running', NOW())\nRETURNING id, started_at;",
+        "options": {}
+      },
+      "id": "insert-scoring-run",
+      "name": "Insert Scoring Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [260, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Load Google Cloud and notification config from n8n environment variables.\n// These must be set in the n8n instance (Settings → Environment Variables)\n// or via the N8N_ENVIRONMENT_VARIABLES docker env.\n\nconst config = {\n  projectId:        $env.GOOGLE_CLOUD_PROJECT_ID        || '',\n  location:         $env.GOOGLE_CLOUD_LOCATION          || 'us-central1',\n  runtimeTemplate:  $env.GOOGLE_CLOUD_NOTEBOOK_RUNTIME_TEMPLATE || '',\n  notebookGcsUri:   $env.COLAB_NOTEBOOK_GCS_URI         || '',\n  outputGcsPrefix:  $env.COLAB_OUTPUT_GCS_PREFIX         || '',\n  dataTeamEmail:    $env.DATA_TEAM_EMAIL                 || 'data-team@novaseat.dev',\n  alertFromEmail:   $env.ALERT_FROM_EMAIL                || 'noreply@novaseat.dev',\n  scoringRunId:     $input.first().json.id,\n  scoringRunStart:  $input.first().json.started_at,\n};\n\nif (!config.projectId || !config.notebookGcsUri) {\n  throw new Error(\n    'Missing required env vars: GOOGLE_CLOUD_PROJECT_ID and COLAB_NOTEBOOK_GCS_URI must be set in n8n environment variables.'\n  );\n}\n\nreturn [{ json: config }];"
+      },
+      "id": "load-config",
+      "name": "Load Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://colab.googleapis.com/v1/projects/{{ $json.projectId }}/locations/{{ $json.location }}/notebookExecutionJobs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"displayName\": \"novaseat-churn-scoring-{{ $now.format('yyyy-MM-dd-HHmmss') }}\",\n  \"gcsNotebookSource\": {\n    \"uri\": \"{{ $json.notebookGcsUri }}\"\n  },\n  \"notebookRuntimeTemplateResourceName\": \"projects/{{ $json.projectId }}/locations/{{ $json.location }}/notebookRuntimeTemplates/{{ $json.runtimeTemplate }}\",\n  \"gcsOutputUri\": \"{{ $json.outputGcsPrefix }}/{{ $now.format('yyyy-MM-dd') }}\",\n  \"serviceAccount\": \"\"\n}",
+        "options": {
+          "timeout": 30000,
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "id": "trigger-colab",
+      "name": "Trigger Colab Scoring",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 100],
+      "onError": "continueErrorOutput",
+      "notes": "Calls the Colab Enterprise API to create a notebook execution job. Requires a Google Service Account credential in n8n with roles: Colab Enterprise User, Storage Object Viewer."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the execution job name from the API response for polling.\nconst response = $input.first().json;\nconst config = $('Load Config').first().json;\n\nreturn [{\n  json: {\n    ...config,\n    executionJobName: response.name || '',\n    executionJobState: response.state || 'STATE_UNSPECIFIED',\n  }\n}];"
+      },
+      "id": "parse-execution-response",
+      "name": "Parse Execution Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 100]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "id": "wait-for-scoring",
+      "name": "Wait for Scoring",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1300, 100]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://colab.googleapis.com/v1/{{ $('Parse Execution Response').item.json.executionJobName }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "poll-execution-status",
+      "name": "Poll Execution Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 100],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if the notebook execution has completed, failed, or is still running.\nconst response = $input.first().json;\nconst config = $('Load Config').first().json;\nconst state = (response.state || 'UNKNOWN').toUpperCase();\n\nconst terminalStates = ['SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED', 'INITIALIZING'];\nconst isComplete = state === 'SUCCEEDED';\nconst isFailed = ['FAILED', 'CANCELLED', 'EXPIRED'].includes(state);\nconst isRunning = !terminalStates.includes(state) || state === 'INITIALIZING';\n\nreturn [{\n  json: {\n    ...config,\n    executionState: state,\n    isComplete,\n    isFailed,\n    isRunning,\n    error: response.error || null,\n  }\n}];"
+      },
+      "id": "check-execution-state",
+      "name": "Check Execution State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1820, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.isRunning }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-still-running",
+      "name": "Still Running?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2080, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.isComplete }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-execution-succeeded",
+      "name": "Execution Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2560, 100]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  COUNT(*) AS accounts_scored,\n  MIN(last_scored_at) AS earliest_score,\n  MAX(last_scored_at) AS latest_score\nFROM accounts\nWHERE last_scored_at >= (NOW() - INTERVAL '30 minutes');",
+        "options": {}
+      },
+      "id": "validate-scores",
+      "name": "Validate Scores in DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2820, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.accounts_scored }}",
+              "rightValue": "0",
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-scores-valid",
+      "name": "Scores Written?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3080, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE scoring_runs\nSET status       = 'Completed',\n    completed_at = NOW(),\n    accounts_scored = {{ $('Validate Scores in DB').item.json.accounts_scored }},\n    metrics = jsonb_build_object(\n      'earliest_score', '{{ $('Validate Scores in DB').item.json.earliest_score }}',\n      'latest_score',   '{{ $('Validate Scores in DB').item.json.latest_score }}',\n      'tier_distribution', (\n        SELECT jsonb_object_agg(risk_tier, cnt)\n        FROM (\n          SELECT risk_tier::TEXT, COUNT(*) AS cnt\n          FROM accounts\n          WHERE last_scored_at >= (NOW() - INTERVAL '30 minutes')\n          GROUP BY risk_tier\n        ) t\n      )\n    )\nWHERE id = '{{ $('Load Config').item.json.scoringRunId }}';",
+        "options": {}
+      },
+      "id": "mark-run-completed",
+      "name": "Mark Run Completed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3340, -100]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE scoring_runs\nSET status        = 'Failed',\n    completed_at  = NOW(),\n    error_message = 'Notebook completed but no scores were written to the database.'\nWHERE id = '{{ $('Load Config').item.json.scoringRunId }}';",
+        "options": {}
+      },
+      "id": "mark-run-failed-validation",
+      "name": "Mark Run Failed (No Scores)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3340, 100]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Load Config').item.json.alertFromEmail }}",
+        "toEmail": "={{ $('Load Config').item.json.dataTeamEmail }}",
+        "subject": "=❌ Churn Scoring Failed — No scores written — {{ $now.format('yyyy-MM-dd') }}",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;\"><h2 style=\"color:#dc2626;\">Nightly Scoring Run Failed</h2><p><strong>Run ID:</strong> {{ $('Load Config').item.json.scoringRunId }}</p><p><strong>Started at:</strong> {{ $('Load Config').item.json.scoringRunStart }}</p><p><strong>Failure reason:</strong> The Colab notebook execution completed successfully, but no scores were written to the database within the expected window.</p><h3>What to check</h3><ul><li>Verify the scoring notebook's database connection settings</li><li>Check the notebook output in GCS: <code>{{ $('Load Config').item.json.outputGcsPrefix }}/{{ $now.format('yyyy-MM-dd') }}</code></li><li>Verify Google Drive model artifacts are accessible</li><li>Review the <code>scoring_runs</code> table for details</li></ul><p style=\"margin-top:24px;color:#6b7280;font-size:13px;\">This is an automated alert from the NovaSeat Churn Prevention system.</p></div>",
+        "options": {}
+      },
+      "id": "send-failure-email-validation",
+      "name": "Notify: No Scores Written",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [3600, 100]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE scoring_runs\nSET status        = 'Failed',\n    completed_at  = NOW(),\n    error_message = 'Notebook execution failed. State: {{ $('Check Execution State').item.json.executionState }}. Error: {{ $('Check Execution State').item.json.error || \"unknown\" }}'\nWHERE id = '{{ $('Load Config').item.json.scoringRunId }}';",
+        "options": {}
+      },
+      "id": "mark-run-failed-execution",
+      "name": "Mark Run Failed (Execution)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2820, 200]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Load Config').item.json.alertFromEmail }}",
+        "toEmail": "={{ $('Load Config').item.json.dataTeamEmail }}",
+        "subject": "=❌ Churn Scoring Failed — Notebook error — {{ $now.format('yyyy-MM-dd') }}",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;\"><h2 style=\"color:#dc2626;\">Nightly Scoring Run Failed</h2><p><strong>Run ID:</strong> {{ $('Load Config').item.json.scoringRunId }}</p><p><strong>Started at:</strong> {{ $('Load Config').item.json.scoringRunStart }}</p><p><strong>Execution state:</strong> {{ $('Check Execution State').item.json.executionState }}</p><p><strong>Error:</strong> {{ $('Check Execution State').item.json.error || 'No details — check the execution job in Google Cloud Console.' }}</p><h3>What to check</h3><ul><li>Open <a href=\"https://console.cloud.google.com/colab/notebooks?project={{ $('Load Config').item.json.projectId }}\">Colab Enterprise</a> and inspect the execution job</li><li>Verify the runtime template <code>{{ $('Load Config').item.json.runtimeTemplate }}</code> is valid</li><li>Check service account permissions (Colab Enterprise User, Storage Object Viewer)</li></ul><p style=\"margin-top:24px;color:#6b7280;font-size:13px;\">This is an automated alert from the NovaSeat Churn Prevention system.</p></div>",
+        "options": {}
+      },
+      "id": "send-failure-email-execution",
+      "name": "Notify: Execution Failed",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [3080, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE scoring_runs\nSET status        = 'Failed',\n    completed_at  = NOW(),\n    error_message = 'Colab API call failed. The notebook execution could not be started.'\nWHERE id = '{{ $('Load Config').item.json.scoringRunId }}';",
+        "options": {}
+      },
+      "id": "mark-run-failed-api",
+      "name": "Mark Run Failed (API Error)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1040, 340]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Load Config').item.json.alertFromEmail }}",
+        "toEmail": "={{ $('Load Config').item.json.dataTeamEmail }}",
+        "subject": "=❌ Churn Scoring Failed — API error — {{ $now.format('yyyy-MM-dd') }}",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;\"><h2 style=\"color:#dc2626;\">Nightly Scoring Run Failed</h2><p><strong>Run ID:</strong> {{ $('Load Config').item.json.scoringRunId }}</p><p><strong>Started at:</strong> {{ $('Load Config').item.json.scoringRunStart }}</p><p><strong>Failure reason:</strong> The Colab Enterprise API call failed. The notebook execution could not be started.</p><h3>What to check</h3><ul><li>Verify the Google Service Account credential in n8n is valid and not expired</li><li>Check that the service account has the <code>Colab Enterprise User</code> role</li><li>Verify project ID (<code>{{ $('Load Config').item.json.projectId }}</code>) and location (<code>{{ $('Load Config').item.json.location }}</code>)</li><li>Check n8n execution logs for HTTP response details</li></ul><p style=\"margin-top:24px;color:#6b7280;font-size:13px;\">This is an automated alert from the NovaSeat Churn Prevention system.</p></div>",
+        "options": {}
+      },
+      "id": "send-failure-email-api",
+      "name": "Notify: API Error",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1300, 340]
+    }
+  ],
+  "connections": {
+    "Nightly 02:00": {
+      "main": [
+        [{ "node": "Insert Scoring Run", "type": "main", "index": 0 }]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [{ "node": "Insert Scoring Run", "type": "main", "index": 0 }]
+      ]
+    },
+    "Insert Scoring Run": {
+      "main": [
+        [{ "node": "Load Config", "type": "main", "index": 0 }]
+      ]
+    },
+    "Load Config": {
+      "main": [
+        [{ "node": "Trigger Colab Scoring", "type": "main", "index": 0 }]
+      ]
+    },
+    "Trigger Colab Scoring": {
+      "main": [
+        [{ "node": "Parse Execution Response", "type": "main", "index": 0 }],
+        [{ "node": "Mark Run Failed (API Error)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Execution Response": {
+      "main": [
+        [{ "node": "Wait for Scoring", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait for Scoring": {
+      "main": [
+        [{ "node": "Poll Execution Status", "type": "main", "index": 0 }]
+      ]
+    },
+    "Poll Execution Status": {
+      "main": [
+        [{ "node": "Check Execution State", "type": "main", "index": 0 }],
+        [{ "node": "Mark Run Failed (API Error)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check Execution State": {
+      "main": [
+        [{ "node": "Still Running?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Still Running?": {
+      "main": [
+        [{ "node": "Wait for Scoring", "type": "main", "index": 0 }],
+        [{ "node": "Execution Succeeded?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Execution Succeeded?": {
+      "main": [
+        [{ "node": "Validate Scores in DB", "type": "main", "index": 0 }],
+        [{ "node": "Mark Run Failed (Execution)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Validate Scores in DB": {
+      "main": [
+        [{ "node": "Scores Written?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Scores Written?": {
+      "main": [
+        [{ "node": "Mark Run Completed", "type": "main", "index": 0 }],
+        [{ "node": "Mark Run Failed (No Scores)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mark Run Failed (No Scores)": {
+      "main": [
+        [{ "node": "Notify: No Scores Written", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mark Run Failed (Execution)": {
+      "main": [
+        [{ "node": "Notify: Execution Failed", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mark Run Failed (API Error)": {
+      "main": [
+        [{ "node": "Notify: API Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mark Run Completed": {
+      "main": []
+    },
+    "Notify: No Scores Written": {
+      "main": []
+    },
+    "Notify: Execution Failed": {
+      "main": []
+    },
+    "Notify: API Error": {
+      "main": []
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "tags": [
+    { "name": "novaseat" },
+    { "name": "churn-prevention" }
+  ]
+}

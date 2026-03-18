@@ -82,6 +82,7 @@ n8n workflows are stored as JSON files in the `workflow-n8n/` directory. Each fi
 
 ```
 workflow-n8n/
+├── workflow1-nightly-model-trigger.json
 ├── workflow2-churn-alert-monitor.json
 ├── workflow4-weekly-reporting.json
 └── ...
@@ -104,7 +105,21 @@ The sync script performs an **upsert by workflow name**: if a workflow with the 
 | `N8N_POSTGRES_CREDENTIAL_NAME` | No | Credential name to look up in n8n (default: `NovaSeat PostgreSQL`) |
 | `N8N_SMTP_CREDENTIAL_ID` | No | Existing n8n credential ID for email nodes |
 | `N8N_SMTP_CREDENTIAL_NAME` | No | SMTP credential name to look up (default: `NovaSeat SMTP`) |
+| `N8N_GOOGLE_CREDENTIAL_ID` | No | Existing n8n credential ID for Google Service Account |
+| `N8N_GOOGLE_CREDENTIAL_NAME` | No | Google credential name to look up (default: `NovaSeat Google Service Account`) |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Fallback | Used for inline Postgres credentials when no credential ID is set |
+
+**Workflow 1 (Nightly Model Trigger)** also requires these n8n environment variables (set in n8n Settings → Environment Variables):
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GOOGLE_CLOUD_PROJECT_ID` | Yes | GCP project ID for Colab Enterprise |
+| `GOOGLE_CLOUD_LOCATION` | No | GCP region (default: `us-central1`) |
+| `GOOGLE_CLOUD_NOTEBOOK_RUNTIME_TEMPLATE` | Yes | Vertex AI runtime template ID |
+| `COLAB_NOTEBOOK_GCS_URI` | Yes | GCS URI of the scoring notebook (`gs://...`) |
+| `COLAB_OUTPUT_GCS_PREFIX` | No | GCS prefix for execution output |
+| `DATA_TEAM_EMAIL` | No | Failure notification recipient (default: `data-team@novaseat.dev`) |
+| `ALERT_FROM_EMAIL` | No | Sender email for alerts (default: `noreply@novaseat.dev`) |
 
 **Usage**:
 

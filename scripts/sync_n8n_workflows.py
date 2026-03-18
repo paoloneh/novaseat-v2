@@ -246,6 +246,15 @@ def build_credential_config(dotenv_values: Dict[str, str]) -> Dict[str, Dict[str
             "name": resolve_setting(dotenv_values, "N8N_SMTP_CREDENTIAL_NAME", "NovaSeat SMTP")
             or "NovaSeat SMTP",
         },
+        "googleApi": {
+            "id": resolve_setting(dotenv_values, "N8N_GOOGLE_CREDENTIAL_ID", ""),
+            "name": resolve_setting(
+                dotenv_values,
+                "N8N_GOOGLE_CREDENTIAL_NAME",
+                "NovaSeat Google Service Account",
+            )
+            or "NovaSeat Google Service Account",
+        },
     }
 
 
@@ -268,6 +277,11 @@ def enrich_credential_ids_from_n8n(
             "id_key": "id",
             "name_key": "name",
             "type_hint": "smtp",
+        },
+        "googleApi": {
+            "id_key": "id",
+            "name_key": "name",
+            "type_hint": "googleapi",
         },
     }
 
@@ -338,6 +352,7 @@ def inject_credentials(
     nodes = updated_workflow.get("nodes", [])
     postgres_inline = build_postgres_inline_credentials(dotenv_values)
     warned_missing_smtp = False
+    warned_missing_google = False
 
     for node in nodes:
         node_type = node.get("type")
@@ -383,6 +398,30 @@ def inject_credentials(
                 "smtp": {
                     "id": smtp["id"],
                     "name": smtp["name"],
+                }
+            }
+
+        # httpRequest nodes using Google Service Account (predefinedCredentialType)
+        if (
+            node_type == "n8n-nodes-base.httpRequest"
+            and node.get("parameters", {}).get("nodeCredentialType") == "googleApi"
+        ):
+            google = credential_config.get("googleApi", {})
+            if not google.get("id"):
+                if not warned_missing_google:
+                    print(
+                        "WARNING: Google API credential not resolved for httpRequest nodes. "
+                        "Sync will continue, but Google API nodes will remain without credentials. "
+                        "Set N8N_GOOGLE_CREDENTIAL_ID or create a Google Service Account credential named "
+                        f"'{google.get('name', 'NovaSeat Google Service Account')}' in n8n.",
+                        file=sys.stderr,
+                    )
+                    warned_missing_google = True
+                continue
+            node["credentials"] = {
+                "googleApi": {
+                    "id": google["id"],
+                    "name": google["name"],
                 }
             }
 
