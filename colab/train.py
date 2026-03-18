@@ -332,6 +332,8 @@ def save_artifacts(
         "n_features": len(FEATURE_COLUMNS),
         "feature_columns": FEATURE_COLUMNS,
     }
+    report = _to_builtin_json(report)
+
     with open(out / "training_report.json", "w") as f:
         json.dump(report, f, indent=2)
 
@@ -346,6 +348,21 @@ def _human_size(size: int) -> str:
             return f"{size:.0f} {unit}"
         size /= 1024
     return f"{size:.1f} GB"
+
+
+def _to_builtin_json(value):
+    """Recursively convert NumPy values into JSON-serializable Python types."""
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, dict):
+        return {k: _to_builtin_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_to_builtin_json(v) for v in value]
+    if isinstance(value, tuple):
+        return [_to_builtin_json(v) for v in value]
+    return value
 
 
 # ---------------------------------------------------------------------------
