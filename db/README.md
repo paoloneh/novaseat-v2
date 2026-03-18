@@ -7,13 +7,14 @@ This document describes the PostgreSQL database schema that powers the NovaSeat 
 ## Quick Start
 
 ```bash
+cp .env.example .env
 docker compose up -d
 ```
 
 | Service    | URL / Connection                                                   |
 |------------|--------------------------------------------------------------------|
-| PostgreSQL | `postgresql://novaseat:novaseat_secret@localhost:5432/novaseat`     |
-| pgAdmin    | `http://localhost:5050` — login `admin@novaseat.dev` / `admin`     |
+| PostgreSQL | `postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:$POSTGRES_PORT/$POSTGRES_DB` |
+| pgAdmin    | `http://localhost:$PGADMIN_PORT` — login `$PGADMIN_DEFAULT_EMAIL` / `$PGADMIN_DEFAULT_PASSWORD` |
 
 The schema is automatically applied on first container start via `init.sql`.
 
