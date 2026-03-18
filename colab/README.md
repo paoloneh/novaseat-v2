@@ -20,11 +20,11 @@ Both notebooks include a **sync cell** that automatically clones (or pulls) this
 1. Go to [Google Colab](https://colab.research.google.com).
 2. Click **File > Upload notebook** and select `train_colab.ipynb` (or open it from GitHub directly).
 3. Repeat for `score_colab.ipynb`.
-4. Run the notebooks — the sync cell will clone the repo and make all files available at `/content/oma-it-aiag/`.
+4. Run the notebooks — the sync cell will clone the repo and make all files available at `/content/novaseat-v2/`.
 
 > **Note:** The repo uses an SSH remote. If SSH keys are not configured in your Colab environment, change `REPO_URL` in the sync cell to the HTTPS URL:
 > ```
-> REPO_URL = "https://github.com/paoloneh/oma-it-aiag.git"
+> REPO_URL = "https://github.com/paoloneh/novaseat-v2.git"
 > ```
 
 ## How to use
@@ -36,7 +36,7 @@ Both notebooks include a **sync cell** that automatically clones (or pulls) this
    - `USE_DRIVE` — set to `True` to save artifacts to Google Drive (recommended), or `False` to download them as a zip.
    - `SKIP_SHAP` — set to `True` to skip SHAP computation (faster, but no per-account churn drivers).
 3. Run all cells (`Runtime > Run all`).
-4. The sync cell clones the repo automatically — the dataset CSV is loaded from the cloned repo (`/content/oma-it-aiag/colab/WA_Fn-UseC_-Telco-Customer-Churn.csv`).
+4. The sync cell clones the repo automatically — the dataset CSV is loaded from the cloned repo (`/content/novaseat-v2/colab/WA_Fn-UseC_-Telco-Customer-Churn.csv`).
 5. The notebook will:
    - Map the Telco dataset to the NovaSeat DB schema
    - Engineer 19 features (numeric, binary, one-hot encoded)
