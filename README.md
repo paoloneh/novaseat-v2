@@ -42,3 +42,4 @@ docker compose logs -f pgadmin
 - `db/` — PostgreSQL schema and docs
 - `colab/` — model training and scoring notebooks/scripts
 - `workflow-n8n/` — n8n workflow exports and docs
+- `scripts/sync_n8n_workflows.py` — upsert local workflow JSON files to a running n8n instance via API key

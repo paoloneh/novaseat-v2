@@ -33,10 +33,7 @@
       "name": "Fetch Churn Alerts",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [260, 100],
-      "credentials": {
-        "postgres": { "id": "CONFIGURE_ME", "name": "NovaSeat PostgreSQL" }
-      }
+      "position": [260, 100]
     },
     {
       "parameters": {
@@ -78,10 +75,7 @@
       "name": "Insert Intervention",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1000, 0],
-      "credentials": {
-        "postgres": { "id": "CONFIGURE_ME", "name": "NovaSeat PostgreSQL" }
-      }
+      "position": [1000, 0]
     },
     {
       "parameters": {
@@ -103,10 +97,7 @@
       "name": "Insert Outreach Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1480, 0],
-      "credentials": {
-        "postgres": { "id": "CONFIGURE_ME", "name": "NovaSeat PostgreSQL" }
-      }
+      "position": [1480, 0]
     },
     {
       "parameters": {
@@ -118,10 +109,7 @@
       "name": "Insert Task",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1720, 0],
-      "credentials": {
-        "postgres": { "id": "CONFIGURE_ME", "name": "NovaSeat PostgreSQL" }
-      }
+      "position": [1720, 0]
     },
     {
       "parameters": {
@@ -133,10 +121,7 @@
       "name": "Update Account Status",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1960, 0],
-      "credentials": {
-        "postgres": { "id": "CONFIGURE_ME", "name": "NovaSeat PostgreSQL" }
-      }
+      "position": [1960, 0]
     },
     {
       "parameters": {
@@ -168,10 +153,7 @@
       "name": "Insert Case (High ARR)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2440, -100],
-      "credentials": {
-        "postgres": { "id": "CONFIGURE_ME", "name": "NovaSeat PostgreSQL" }
-      }
+      "position": [2440, -100]
     },
     {
       "parameters": {
@@ -187,10 +169,7 @@
       "name": "Send Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [2700, 0],
-      "credentials": {
-        "smtp": { "id": "CONFIGURE_ME", "name": "NovaSeat SMTP" }
-      }
+      "position": [2700, 0]
     },
     {
       "parameters": {
@@ -204,10 +183,7 @@
       "name": "Notify CSM (Escalation)",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [2700, -200],
-      "credentials": {
-        "smtp": { "id": "CONFIGURE_ME", "name": "NovaSeat SMTP" }
-      }
+      "position": [2700, -200]
     }
   ],
   "connections": {
