@@ -73,4 +73,56 @@ IF risk_tier = "Medium"
 
 - Database runs via Docker Compose (`docker-compose.yml`)
 - Colab notebooks are designed to run from GitHub
-- n8n workflows are configured externally (not stored in this repo)
+
+### n8n Workflow Management
+
+#### Workflow files (`workflow-n8n/`)
+
+n8n workflows are stored as JSON files in the `workflow-n8n/` directory. Each file represents a single workflow exported from n8n. File naming convention uses a numbered prefix matching the workflow number:
+
+```
+workflow-n8n/
+├── workflow2-churn-alert-monitor.json
+├── workflow4-weekly-reporting.json
+└── ...
+```
+
+- Files must be valid JSON objects with a `"name"` key at the top level (the workflow name used for upsert matching).
+- Workflow JSON should **not** contain credential secrets — the sync script injects credentials at deploy time.
+
+#### Syncing workflows to n8n (`scripts/sync_n8n_workflows.py`)
+
+The sync script performs an **upsert by workflow name**: if a workflow with the same name exists in n8n it is updated, otherwise it is created.
+
+**Prerequisites**: set the following in `.env` (or as environment variables):
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `N8N_API_KEY` | Yes | n8n instance API key |
+| `N8N_BASE_URL` | No | n8n base URL (default: `http://localhost:5678`) |
+| `N8N_POSTGRES_CREDENTIAL_ID` | No | Existing n8n credential ID for Postgres nodes |
+| `N8N_POSTGRES_CREDENTIAL_NAME` | No | Credential name to look up in n8n (default: `NovaSeat PostgreSQL`) |
+| `N8N_SMTP_CREDENTIAL_ID` | No | Existing n8n credential ID for email nodes |
+| `N8N_SMTP_CREDENTIAL_NAME` | No | SMTP credential name to look up (default: `NovaSeat SMTP`) |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Fallback | Used for inline Postgres credentials when no credential ID is set |
+
+**Usage**:
+
+```bash
+# Sync all workflows from workflow-n8n/ to the local n8n instance
+python scripts/sync_n8n_workflows.py
+
+# Dry run — show what would be created/updated without making changes
+python scripts/sync_n8n_workflows.py --dry-run
+
+# Point to a different n8n instance
+python scripts/sync_n8n_workflows.py --base-url https://n8n.example.com --api-key <key>
+
+# Sync from a custom directory
+python scripts/sync_n8n_workflows.py --workflows-dir /path/to/workflows
+```
+
+**Credential injection**: the script automatically injects credentials into Postgres and email nodes at sync time. Resolution order:
+1. Explicit credential ID from env (`N8N_POSTGRES_CREDENTIAL_ID` / `N8N_SMTP_CREDENTIAL_ID`)
+2. Lookup by credential name in n8n
+3. (Postgres only) Inline connection from `POSTGRES_*` env vars
