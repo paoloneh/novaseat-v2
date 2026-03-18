@@ -33,10 +33,7 @@
       "name": "Fetch Weekly Stats",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [260, 100],
-      "credentials": {
-        "postgres": { "id": "CONFIGURE_ME", "name": "NovaSeat PostgreSQL" }
-      }
+      "position": [260, 100]
     },
     {
       "parameters": {
@@ -48,10 +45,7 @@
       "name": "Fetch Risk Distribution",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [260, 300],
-      "credentials": {
-        "postgres": { "id": "CONFIGURE_ME", "name": "NovaSeat PostgreSQL" }
-      }
+      "position": [260, 300]
     },
     {
       "parameters": {
@@ -85,10 +79,7 @@
       "name": "Save Report to DB",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1000, 200],
-      "credentials": {
-        "postgres": { "id": "CONFIGURE_ME", "name": "NovaSeat PostgreSQL" }
-      }
+      "position": [1000, 200]
     },
     {
       "parameters": {
@@ -102,10 +93,7 @@
       "name": "Send Report Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [1240, 200],
-      "credentials": {
-        "smtp": { "id": "CONFIGURE_ME", "name": "NovaSeat SMTP" }
-      }
+      "position": [1240, 200]
     }
   ],
   "connections": {
