@@ -186,7 +186,7 @@
       "name": "Validate Scores in DB",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2950, 0]
+      "position": [3470, 0]
     },
     {
       "parameters": {
@@ -206,7 +206,7 @@
       "name": "Scores Written?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3210, 0]
+      "position": [3730, 0]
     },
     {
       "parameters": {
@@ -218,7 +218,7 @@
       "name": "Mark Run Completed",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3470, -100]
+      "position": [3990, -100]
     },
     {
       "parameters": {
@@ -230,7 +230,7 @@
       "name": "Mark Run Failed (No Scores)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3470, 100]
+      "position": [3990, 100]
     },
     {
       "parameters": {
@@ -244,7 +244,7 @@
       "name": "Notify: No Scores Written",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [3730, 100]
+      "position": [4250, 100]
     },
     {
       "parameters": {
@@ -297,6 +297,28 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [1430, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Download scored_accounts.csv from GCS and build an upsert SQL.\nconst accessToken = $('Get Access Token').item.json.accessToken;\nconst gcsUri = ($env.COLAB_NOTEBOOK_GCS_URI || '').replace(/\\/[^\\/]+$/, '');\nconst csvGcsUri = gcsUri.replace('gs://', '').replace(/\\/Colab.*/, '') + '/artifacts/scored_accounts.csv';\nconst bucket = csvGcsUri.split('/')[0];\nconst object = csvGcsUri.split('/').slice(1).join('/');\n\n// 1. Download the CSV from GCS\nconst csvText = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `https://storage.googleapis.com/storage/v1/b/${bucket}/o/${encodeURIComponent(object)}?alt=media`,\n  headers: { Authorization: `Bearer ${accessToken}` },\n  json: false,\n});\n\nif (!csvText || !String(csvText).trim()) {\n  throw new Error('scored_accounts.csv is empty or not found on GCS');\n}\n\n// 2. Parse CSV (handles quoted fields containing commas and escaped quotes)\nconst lines = String(csvText).trim().split('\\n');\nconst headers = lines[0].split(',').map(h => h.trim().replace(/^\\\"|\\\"$/g, ''));\nconst rows = [];\n\nfor (let i = 1; i < lines.length; i++) {\n  if (!lines[i].trim()) continue;\n  const line = lines[i];\n  const row = {};\n  let field = '';\n  let inQuotes = false;\n  let colIdx = 0;\n\n  for (let j = 0; j < line.length; j++) {\n    const ch = line[j];\n    if (inQuotes) {\n      if (ch === '\"') {\n        if (j + 1 < line.length && line[j + 1] === '\"') {\n          field += '\"';\n          j++;\n        } else {\n          inQuotes = false;\n        }\n      } else {\n        field += ch;\n      }\n    } else {\n      if (ch === '\"') {\n        inQuotes = true;\n      } else if (ch === ',') {\n        row[headers[colIdx]] = field;\n        field = '';\n        colIdx++;\n      } else {\n        field += ch;\n      }\n    }\n  }\n  row[headers[colIdx]] = field;\n  rows.push(row);\n}\n\nif (rows.length === 0) {\n  throw new Error('scored_accounts.csv parsed but contains no data rows');\n}\n\n// 3. Build upsert SQL\nconst esc = (s) => s == null ? 'NULL' : \"'\" + String(s).replace(/'/g, \"''\") + \"'\";\n\nconst values = rows.map(r => {\n  if (!r.id) return null;\n  const id = esc(r.id) + '::uuid';\n  const prob = parseFloat(r.churn_probability) || 0;\n  const tier = esc(r.risk_tier || 'Low') + '::risk_tier';\n  const drivers = r.churn_drivers ? esc(r.churn_drivers) + '::jsonb' : 'NULL';\n  const scoredAt = r.last_scored_at ? esc(r.last_scored_at) + '::timestamptz' : 'NOW()';\n  return `(${id}, ${prob}, ${tier}, ${drivers}, ${scoredAt})`;\n}).filter(Boolean).join(',\\n  ');\n\nconst sql = `UPDATE accounts AS a SET\\n  churn_probability = v.churn_probability,\\n  risk_tier = v.risk_tier,\\n  churn_drivers = v.churn_drivers,\\n  last_scored_at = v.last_scored_at\\nFROM (VALUES\\n  ${values}\\n) AS v(id, churn_probability, risk_tier, churn_drivers, last_scored_at)\\nWHERE a.id = v.id;`;\n\nreturn [{ json: { sql, rowCount: rows.length } }];"
+      },
+      "id": "download-parse-scores",
+      "name": "Download & Parse Scores from GCS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2950, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {}
+      },
+      "id": "upsert-scores-to-db",
+      "name": "Upsert Scores to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3210, 0]
     }
   ],
   "connections": {
@@ -360,8 +382,18 @@
     },
     "Execution Succeeded?": {
       "main": [
-        [{ "node": "Validate Scores in DB", "type": "main", "index": 0 }],
+        [{ "node": "Download & Parse Scores from GCS", "type": "main", "index": 0 }],
         [{ "node": "Mark Run Failed (Execution)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Download & Parse Scores from GCS": {
+      "main": [
+        [{ "node": "Upsert Scores to DB", "type": "main", "index": 0 }]
+      ]
+    },
+    "Upsert Scores to DB": {
+      "main": [
+        [{ "node": "Validate Scores in DB", "type": "main", "index": 0 }]
       ]
     },
     "Validate Scores in DB": {
