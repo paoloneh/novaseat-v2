@@ -405,7 +405,7 @@ def insert_accounts(conn, df: pd.DataFrame, csm_ids: dict[int, str]) -> None:
             row["risk_tier"],
             drivers,
             row["last_scored_at"],
-            row.get("intervention_status", "None"),
+            row["intervention_status"] if pd.notna(row.get("intervention_status")) else "None",
         ))
 
     placeholders = ", ".join(["%s"] * len(columns))
