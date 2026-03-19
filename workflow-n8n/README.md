@@ -54,7 +54,8 @@ Both workflows require credentials to exist in n8n:
 | Credential | Where | Notes |
 |---|---|---|
 | **NovaSeat PostgreSQL** | All Postgres nodes | Configure with your database connection details |
-| **NovaSeat SMTP** | All Email Send nodes | Configure with your mail provider (Gmail, SendGrid, Resend, etc.) |
+| **NovaSeat SMTP** | All Email Send nodes | Configure with your mail provider (Gmail, SendGrid, etc.) |
+| **NovaSeat Resend** | All Resend nodes | Configure with your Resend API key |
 
 Important: the workflow JSON files in this folder do not store credentials directly.
 Credentials are injected by the sync script at upload time.
@@ -67,6 +68,7 @@ The script `scripts/sync_n8n_workflows.py` reads `.env` (or process environment 
 
 - `n8n-nodes-base.postgres` nodes get `postgres` credentials
 - `n8n-nodes-base.emailSend` nodes get `smtp` credentials
+- `n8n-nodes-base.resend` nodes get `resendApi` credentials
 
 This keeps workflow JSON files portable and secrets-free in git.
 
@@ -81,11 +83,13 @@ For credential injection:
 
 - `N8N_POSTGRES_CREDENTIAL_ID` (optional but recommended)
 - `N8N_SMTP_CREDENTIAL_ID` (optional but recommended)
+- `N8N_RESEND_CREDENTIAL_ID` (optional — needed if workflows use Resend nodes)
 
 Optional display names:
 
 - `N8N_POSTGRES_CREDENTIAL_NAME` (default: `NovaSeat PostgreSQL`)
 - `N8N_SMTP_CREDENTIAL_NAME` (default: `NovaSeat SMTP`)
+- `N8N_RESEND_CREDENTIAL_NAME` (default: `NovaSeat Resend`)
 
 If credential IDs are not provided, the script tries to resolve them from n8n using the credential names above.
 Sync fails only if it cannot resolve an ID for a node type that exists in the workflows.
@@ -101,6 +105,9 @@ N8N_POSTGRES_CREDENTIAL_NAME=NovaSeat PostgreSQL
 
 N8N_SMTP_CREDENTIAL_ID=YOUR_SMTP_CRED_ID
 N8N_SMTP_CREDENTIAL_NAME=NovaSeat SMTP
+
+N8N_RESEND_CREDENTIAL_ID=YOUR_RESEND_CRED_ID
+N8N_RESEND_CREDENTIAL_NAME=NovaSeat Resend
 ```
 
 ### How to find credential IDs in n8n

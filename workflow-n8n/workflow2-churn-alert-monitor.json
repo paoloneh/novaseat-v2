@@ -157,33 +157,53 @@
     },
     {
       "parameters": {
-        "fromEmail": "noreply@novaseat.dev",
-        "toEmail": "={{ $('Merge Intervention ID').item.json.account_email }}",
+        "resource": "email",
+        "operation": "send",
+        "from": "=noreply@novaseat.dev",
+        "to": "={{ $('Merge Intervention ID').item.json.account_email }}",
         "subject": "={{ $('Merge Intervention ID').item.json.emailSubject }}",
+        "emailFormat": "html",
+        "useTemplate": false,
         "html": "={{ $('Merge Intervention ID').item.json.emailBody }}",
-        "options": {
+        "additionalOptions": {
           "replyTo": "={{ $('Merge Intervention ID').item.json.csm_email || 'success@novaseat.dev' }}"
         }
       },
       "id": "send-email",
       "name": "Send Email",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [2700, 0]
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [2700, 0],
+      "credentials": {
+        "resendApi": {
+          "id": "ZdsvkSPEJZdaZJ1l",
+          "name": "Resend account"
+        }
+      }
     },
     {
       "parameters": {
-        "fromEmail": "noreply@novaseat.dev",
-        "toEmail": "={{ $('Merge Intervention ID').item.json.csm_email }}",
+        "resource": "email",
+        "operation": "send",
+        "from": "=noreply@novaseat.dev",
+        "to": "={{ $('Merge Intervention ID').item.json.csm_email }}",
         "subject": "=🚨 CSM Escalation: {{ $('Merge Intervention ID').item.json.account_name }} — Critical Risk (ARR €{{ $('Merge Intervention ID').item.json.annual_revenue }})",
+        "emailFormat": "html",
+        "useTemplate": false,
         "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;padding:24px;\"><h2 style=\"color:#dc2626;\">Critical Account Escalation</h2><p><strong>Account:</strong> {{ $('Merge Intervention ID').item.json.account_name }}</p><p><strong>ARR:</strong> €{{ $('Merge Intervention ID').item.json.annual_revenue }}</p><p><strong>Churn Probability:</strong> {{ $('Merge Intervention ID').item.json.churn_probability }}</p><p><strong>Risk Tier:</strong> {{ $('Merge Intervention ID').item.json.risk_tier }}</p><p><strong>Top Churn Drivers:</strong> {{ JSON.stringify($('Merge Intervention ID').item.json.churn_drivers) }}</p><p>An outreach email has already been sent to the customer. Please follow up within 24 hours.</p></div>",
-        "options": {}
+        "additionalOptions": {}
       },
       "id": "notify-csm",
       "name": "Notify CSM (Escalation)",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [2700, -200]
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [2700, -200],
+      "credentials": {
+        "resendApi": {
+          "id": "ZdsvkSPEJZdaZJ1l",
+          "name": "Resend account"
+        }
+      }
     }
   ],
   "connections": {

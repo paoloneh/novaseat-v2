@@ -105,6 +105,8 @@ The sync script performs an **upsert by workflow name**: if a workflow with the 
 | `N8N_POSTGRES_CREDENTIAL_NAME` | No | Credential name to look up in n8n (default: `NovaSeat PostgreSQL`) |
 | `N8N_SMTP_CREDENTIAL_ID` | No | Existing n8n credential ID for email nodes |
 | `N8N_SMTP_CREDENTIAL_NAME` | No | SMTP credential name to look up (default: `NovaSeat SMTP`) |
+| `N8N_RESEND_CREDENTIAL_ID` | No | Existing n8n credential ID for Resend nodes |
+| `N8N_RESEND_CREDENTIAL_NAME` | No | Resend credential name to look up (default: `NovaSeat Resend`) |
 | `N8N_GOOGLE_CREDENTIAL_ID` | No | Existing n8n credential ID for Google Service Account |
 | `N8N_GOOGLE_CREDENTIAL_NAME` | No | Google credential name to look up (default: `NovaSeat Google Service Account`) |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Fallback | Used for inline Postgres credentials when no credential ID is set |

@@ -83,17 +83,27 @@
     },
     {
       "parameters": {
-        "fromEmail": "reports@novaseat.dev",
-        "toEmail": "={{HEAD_OF_CS_EMAIL}}",
+        "resource": "email",
+        "operation": "send",
+        "from": "=reports@novaseat.dev",
+        "to": "={{HEAD_OF_CS_EMAIL}}",
         "subject": "=NovaSeat Weekly Churn Report — {{ $json.weekStart }} to {{ $json.weekEnd }}",
+        "emailFormat": "html",
+        "useTemplate": false,
         "html": "={{ $json.reportHtml }}",
-        "options": {}
+        "additionalOptions": {}
       },
       "id": "send-report",
       "name": "Send Report Email",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [1240, 200]
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [1240, 200],
+      "credentials": {
+        "resendApi": {
+          "id": "ZdsvkSPEJZdaZJ1l",
+          "name": "Resend account"
+        }
+      }
     }
   ],
   "connections": {

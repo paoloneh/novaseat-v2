@@ -82,35 +82,51 @@
     },
     {
       "parameters": {
-        "sendTo": "={{ $json.email }}",
-        "subject": "=URGENT: {{ $json.company_name || $json.name }}, your NovaSeat account requires immediate attention",
-        "emailType": "html",
-        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:0;\"><div style=\"background:#dc2626;color:#ffffff;padding:14px 24px;border-radius:6px 6px 0 0;font-weight:bold;font-size:14px;letter-spacing:0.5px;\">CRITICAL RISK ALERT</div><div style=\"border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 6px 6px;\"><h2 style=\"color:#1a1a2e;margin-top:0;\">Hi {{ $json.name.split(' ')[0] || $json.name }},</h2><p>Our systems have detected that your account is at <strong style=\"color:#dc2626;\">critical risk</strong> of not getting full value from NovaSeat.</p><p>Your current churn probability is <strong>{{ ($json.churn_probability * 100).toFixed(1) }}%</strong>, which means we need to act now to ensure your team continues to benefit from the platform.</p><p>We take this very seriously and want to help immediately. Here is what we can do:</p><ul style=\"padding-left:20px;\"><li><strong>Schedule a priority success call</strong> with our team</li><li><strong>Get a personalized optimization plan</strong> for your event workflows</li><li><strong>Receive dedicated support</strong> for any open issues</li></ul><p><a href=\"https://cal.novaseat.dev/success-team\" style=\"display:inline-block;background:#dc2626;color:#ffffff;padding:14px 28px;border-radius:6px;text-decoration:none;font-weight:bold;margin:8px 0;\">Book an Urgent Call Now</a></p><p style=\"color:#6b7280;font-size:13px;\">Or reply directly to this email — a senior member of our Customer Success team will respond within 2 hours.</p><p style=\"margin-top:24px;\">We are here for you,<br/><strong>NovaSeat Customer Success</strong></p></div></div>",
-        "options": {
-          "appendAttribution": false
-        }
+        "resource": "email",
+        "operation": "send",
+        "from": "=info@safesphere.it",
+        "to": "={{ $json.email }}",
+        "subject": "={{ $json.name.split(' ')[0] || $json.name }}, we would love to help you get the most out of NovaSeat",
+        "emailFormat": "html",
+        "useTemplate": false,
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:0;\"><div style=\"background:#f3f4f6;padding:20px 24px;border-radius:6px 6px 0 0;text-align:center;\"><h1 style=\"color:#374151;margin:0;font-size:20px;font-weight:600;\">NovaSeat</h1></div><div style=\"border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 6px 6px;\"><h2 style=\"color:#374151;margin-top:0;font-weight:normal;\">Hi {{ $json.name.split(' ')[0] || $json.name }},</h2><p style=\"color:#4b5563;line-height:1.6;\">Thank you for being part of the NovaSeat community. We are reaching out because we believe there may be some features and capabilities that could bring even more value to {{ $json.company_name || 'your team' }}.</p><p style=\"color:#4b5563;line-height:1.6;\">NovaSeat offers a range of tools designed to simplify corporate event management — from AI-powered agenda building to real-time attendee engagement and post-event analytics. We would love the opportunity to walk you through what is available and explore how it might fit your needs.</p><p style=\"color:#4b5563;line-height:1.6;\">If you are interested, we would be happy to arrange a short, no-obligation call with one of our team members to answer any questions and share a few ideas tailored to your organisation.</p><p style=\"text-align:center;margin:24px 0;\"><a href=\"https://cal.novaseat.dev/success-team\" style=\"display:inline-block;background:#6b7280;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:500;\">Book an Appointment</a></p><p style=\"color:#6b7280;font-size:13px;line-height:1.5;\">Of course, there is no obligation at all — feel free to simply reply to this email if you would prefer to chat informally.</p><p style=\"color:#4b5563;margin-top:24px;\">Warm regards,<br/><strong>The NovaSeat Team</strong></p></div></div>",
+        "additionalOptions": {}
       },
       "id": "send-critical-email",
       "name": "Send Critical Email",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [1060, -100]
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [1060, -100],
+      "credentials": {
+        "resendApi": {
+          "id": "ZdsvkSPEJZdaZJ1l",
+          "name": "Resend account"
+        }
+      }
     },
     {
       "parameters": {
-        "sendTo": "={{ $json.email }}",
-        "subject": "={{ $json.name.split(' ')[0] || $json.name }}, a quick tip to get more from NovaSeat",
-        "emailType": "html",
-        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:0;\"><div style=\"background:#f59e0b;color:#ffffff;padding:14px 24px;border-radius:6px 6px 0 0;font-weight:bold;font-size:14px;letter-spacing:0.5px;\">ACCOUNT CHECK-IN</div><div style=\"border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 6px 6px;\"><h2 style=\"color:#1a1a2e;margin-top:0;\">Hi {{ $json.name.split(' ')[0] || $json.name }},</h2><p>We have been looking at how {{ $json.company_name || 'your team' }} uses NovaSeat, and we noticed an area where we think we can help you get more value.</p>{{ $json.churn_drivers ? '<p>Based on our analysis, the main area we would like to help with is <strong>' + (typeof $json.churn_drivers === 'string' ? JSON.parse($json.churn_drivers) : $json.churn_drivers)[0].driver.replace(/_/g, ' ') + '</strong>.</p>' : '' }}<div style=\"background:#fffbeb;border-left:4px solid #f59e0b;padding:16px;margin:16px 0;border-radius:4px;\"><strong>Did you know?</strong> Companies similar to yours that optimize their event workflows see 40% higher attendee engagement within the first month.</div><p>We would love to walk you through some quick wins that could make a real difference:</p><p><a href=\"https://cal.novaseat.dev/success-team\" style=\"display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;margin:8px 0;\">Book a 15-min Call</a></p><p style=\"color:#6b7280;font-size:13px;\">Or simply reply to this email — we read and respond to every message.</p><p style=\"margin-top:24px;\">Best regards,<br/><strong>The NovaSeat Team</strong></p></div></div>",
-        "options": {
-          "appendAttribution": false
-        }
+        "resource": "email",
+        "operation": "send",
+        "from": "=info@safesphere.it",
+        "to": "={{ $json.email }}",
+        "subject": "={{ $json.name.split(' ')[0] || $json.name }}, discover what NovaSeat can do for your events",
+        "emailFormat": "html",
+        "useTemplate": false,
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:0;\"><div style=\"background:#f3f4f6;padding:20px 24px;border-radius:6px 6px 0 0;text-align:center;\"><h1 style=\"color:#374151;margin:0;font-size:20px;font-weight:600;\">NovaSeat</h1></div><div style=\"border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 6px 6px;\"><h2 style=\"color:#374151;margin-top:0;font-weight:normal;\">Hi {{ $json.name.split(' ')[0] || $json.name }},</h2><p style=\"color:#4b5563;line-height:1.6;\">We hope things are going well at {{ $json.company_name || 'your organisation' }}. We wanted to take a moment to share a few ideas on how NovaSeat could help streamline your event management.</p><div style=\"background:#f9fafb;border-left:3px solid #d1d5db;padding:16px;margin:16px 0;border-radius:4px;\"><p style=\"color:#4b5563;margin:0;line-height:1.6;\">Many teams similar to yours have found value in features like our AI agenda builder, live polling, and post-event analytics. We would be happy to show you how these could work for your specific needs.</p></div><p style=\"color:#4b5563;line-height:1.6;\">If you are curious to learn more, we would love to set up a brief call at a time that works for you — completely informal, no strings attached.</p><p style=\"text-align:center;margin:24px 0;\"><a href=\"https://cal.novaseat.dev/success-team\" style=\"display:inline-block;background:#6b7280;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:500;\">Book a Short Call</a></p><p style=\"color:#6b7280;font-size:13px;line-height:1.5;\">Alternatively, feel free to reply to this email — we are always happy to hear from you.</p><p style=\"color:#4b5563;margin-top:24px;\">Best regards,<br/><strong>The NovaSeat Team</strong></p></div></div>",
+        "additionalOptions": {}
       },
       "id": "send-high-email",
       "name": "Send High Email",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [1060, 100]
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [1060, 100],
+      "credentials": {
+        "resendApi": {
+          "id": "ZdsvkSPEJZdaZJ1l",
+          "name": "Resend account"
+        }
+      }
     },
     {
       "parameters": {

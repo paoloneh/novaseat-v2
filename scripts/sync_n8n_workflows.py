@@ -15,6 +15,9 @@ Credential strategy:
 - emailSend nodes:
   1) Use N8N_SMTP_CREDENTIAL_ID when provided.
   2) Else resolve by credential name in n8n.
+- resend nodes:
+  1) Use N8N_RESEND_CREDENTIAL_ID when provided.
+  2) Else resolve by credential name in n8n.
 """
 
 from __future__ import annotations
@@ -246,6 +249,11 @@ def build_credential_config(dotenv_values: Dict[str, str]) -> Dict[str, Dict[str
             "name": resolve_setting(dotenv_values, "N8N_SMTP_CREDENTIAL_NAME", "NovaSeat SMTP")
             or "NovaSeat SMTP",
         },
+        "resend": {
+            "id": resolve_setting(dotenv_values, "N8N_RESEND_CREDENTIAL_ID", ""),
+            "name": resolve_setting(dotenv_values, "N8N_RESEND_CREDENTIAL_NAME", "NovaSeat Resend")
+            or "NovaSeat Resend",
+        },
         "googleApi": {
             "id": resolve_setting(dotenv_values, "N8N_GOOGLE_CREDENTIAL_ID", ""),
             "name": resolve_setting(
@@ -277,6 +285,11 @@ def enrich_credential_ids_from_n8n(
             "id_key": "id",
             "name_key": "name",
             "type_hint": "smtp",
+        },
+        "resend": {
+            "id_key": "id",
+            "name_key": "name",
+            "type_hint": "resendapi",
         },
         "googleApi": {
             "id_key": "id",
@@ -352,6 +365,7 @@ def inject_credentials(
     nodes = updated_workflow.get("nodes", [])
     postgres_inline = build_postgres_inline_credentials(dotenv_values)
     warned_missing_smtp = False
+    warned_missing_resend = False
     warned_missing_google = False
 
     for node in nodes:
@@ -400,6 +414,26 @@ def inject_credentials(
                     "name": smtp["name"],
                 }
             }
+
+        if node_type in ("n8n-nodes-base.resend", "n8n-nodes-resend.resend"):
+            resend = credential_config.get("resend", {})
+            if not resend.get("id"):
+                if not warned_missing_resend:
+                    print(
+                        "WARNING: Resend credential not resolved for Resend nodes. "
+                        "Sync will continue, but Resend nodes will remain without credentials. "
+                        "Set N8N_RESEND_CREDENTIAL_ID or create a Resend API credential named "
+                        f"'{resend.get('name', 'NovaSeat Resend')}' in n8n to enable email sending.",
+                        file=sys.stderr,
+                    )
+                    warned_missing_resend = True
+            else:
+                node["credentials"] = {
+                    "resendApi": {
+                        "id": resend["id"],
+                        "name": resend["name"],
+                    }
+                }
 
         # httpRequest nodes using Google Service Account (predefinedCredentialType)
         if (

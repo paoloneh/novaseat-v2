@@ -234,17 +234,27 @@
     },
     {
       "parameters": {
-        "fromEmail": "={{ $('Get Access Token').item.json.alertFromEmail }}",
-        "toEmail": "={{ $('Get Access Token').item.json.dataTeamEmail }}",
+        "resource": "email",
+        "operation": "send",
+        "from": "={{ $('Get Access Token').item.json.alertFromEmail }}",
+        "to": "={{ $('Get Access Token').item.json.dataTeamEmail }}",
         "subject": "=❌ Churn Scoring Failed — No scores written — {{ $now.format('yyyy-MM-dd') }}",
+        "emailFormat": "html",
+        "useTemplate": false,
         "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;\"><h2 style=\"color:#dc2626;\">Nightly Scoring Run Failed</h2><p><strong>Run ID:</strong> {{ $('Get Access Token').item.json.scoringRunId }}</p><p><strong>Started at:</strong> {{ $('Get Access Token').item.json.scoringRunStart }}</p><p><strong>Failure reason:</strong> The Colab notebook execution completed successfully, but no scores were written to the database within the expected window.</p><h3>What to check</h3><ul><li>Verify the scoring notebook's database connection settings</li><li>Check the notebook output in GCS: <code>{{ $('Get Access Token').item.json.outputGcsPrefix }}/{{ $now.format('yyyy-MM-dd') }}</code></li><li>Verify Google Drive model artifacts are accessible</li><li>Review the <code>scoring_runs</code> table for details</li></ul><p style=\"margin-top:24px;color:#6b7280;font-size:13px;\">This is an automated alert from the NovaSeat Churn Prevention system.</p></div>",
-        "options": {}
+        "additionalOptions": {}
       },
       "id": "send-failure-email-validation",
       "name": "Notify: No Scores Written",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [4250, 100]
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [4250, 100],
+      "credentials": {
+        "resendApi": {
+          "id": "ZdsvkSPEJZdaZJ1l",
+          "name": "Resend account"
+        }
+      }
     },
     {
       "parameters": {
@@ -260,17 +270,27 @@
     },
     {
       "parameters": {
-        "fromEmail": "={{ $('Get Access Token').item.json.alertFromEmail }}",
-        "toEmail": "={{ $('Get Access Token').item.json.dataTeamEmail }}",
+        "resource": "email",
+        "operation": "send",
+        "from": "={{ $('Get Access Token').item.json.alertFromEmail }}",
+        "to": "={{ $('Get Access Token').item.json.dataTeamEmail }}",
         "subject": "=❌ Churn Scoring Failed — Notebook error — {{ $now.format('yyyy-MM-dd') }}",
+        "emailFormat": "html",
+        "useTemplate": false,
         "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;\"><h2 style=\"color:#dc2626;\">Nightly Scoring Run Failed</h2><p><strong>Run ID:</strong> {{ $('Get Access Token').item.json.scoringRunId }}</p><p><strong>Started at:</strong> {{ $('Get Access Token').item.json.scoringRunStart }}</p><p><strong>Execution state:</strong> {{ $('Check Execution State').item.json.executionState }}</p><p><strong>Error:</strong> {{ $('Check Execution State').item.json.error || 'No details — check the execution job in Google Cloud Console.' }}</p><h3>What to check</h3><ul><li>Open <a href=\"https://console.cloud.google.com/colab/notebooks?project={{ $('Get Access Token').item.json.projectId }}\">Colab Enterprise</a> and inspect the execution job</li><li>Verify the runtime template <code>{{ $('Get Access Token').item.json.runtimeTemplate }}</code> is valid</li><li>Check service account permissions (Colab Enterprise User, Storage Object Viewer)</li></ul><p style=\"margin-top:24px;color:#6b7280;font-size:13px;\">This is an automated alert from the NovaSeat Churn Prevention system.</p></div>",
-        "options": {}
+        "additionalOptions": {}
       },
       "id": "send-failure-email-execution",
       "name": "Notify: Execution Failed",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [3210, 200]
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [3210, 200],
+      "credentials": {
+        "resendApi": {
+          "id": "ZdsvkSPEJZdaZJ1l",
+          "name": "Resend account"
+        }
+      }
     },
     {
       "parameters": {
@@ -286,17 +306,27 @@
     },
     {
       "parameters": {
-        "fromEmail": "={{ $('Get Access Token').item.json.alertFromEmail }}",
-        "toEmail": "={{ $('Get Access Token').item.json.dataTeamEmail }}",
+        "resource": "email",
+        "operation": "send",
+        "from": "={{ $('Get Access Token').item.json.alertFromEmail }}",
+        "to": "={{ $('Get Access Token').item.json.dataTeamEmail }}",
         "subject": "=❌ Churn Scoring Failed — API error — {{ $now.format('yyyy-MM-dd') }}",
+        "emailFormat": "html",
+        "useTemplate": false,
         "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;\"><h2 style=\"color:#dc2626;\">Nightly Scoring Run Failed</h2><p><strong>Run ID:</strong> {{ $('Get Access Token').item.json.scoringRunId }}</p><p><strong>Started at:</strong> {{ $('Get Access Token').item.json.scoringRunStart }}</p><p><strong>Failure reason:</strong> The Colab Enterprise API call failed. The notebook execution could not be started.</p><h3>What to check</h3><ul><li>Verify the Google Service Account credential in n8n is valid and not expired</li><li>Check that the service account has the <code>Vertex AI User</code> role</li><li>Verify project ID (<code>{{ $('Get Access Token').item.json.projectId }}</code>) and location (<code>{{ $('Get Access Token').item.json.location }}</code>)</li><li>Check n8n execution logs for HTTP response details</li></ul><p style=\"margin-top:24px;color:#6b7280;font-size:13px;\">This is an automated alert from the NovaSeat Churn Prevention system.</p></div>",
-        "options": {}
+        "additionalOptions": {}
       },
       "id": "send-failure-email-api",
       "name": "Notify: API Error",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [1430, 340]
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [1430, 340],
+      "credentials": {
+        "resendApi": {
+          "id": "ZdsvkSPEJZdaZJ1l",
+          "name": "Resend account"
+        }
+      }
     },
     {
       "parameters": {
