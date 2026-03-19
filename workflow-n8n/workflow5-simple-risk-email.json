@@ -1,0 +1,160 @@
+{
+  "name": "WF5 — Simple Risk Email",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 9 * * *" }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, email, company_name, risk_tier, churn_probability, annual_revenue, churn_drivers FROM accounts;",
+        "options": {}
+      },
+      "id": "fetch-accounts",
+      "name": "Fetch Accounts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [260, 100]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.risk_tier }}",
+                    "rightValue": "Critical",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "Critical"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.risk_tier }}",
+                    "rightValue": "High",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "High"
+            }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      },
+      "id": "risk-router",
+      "name": "Risk Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [520, 100]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=URGENT: {{ $json.company_name || $json.name }}, your NovaSeat account requires immediate attention",
+        "emailType": "html",
+        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:0;\"><div style=\"background:#dc2626;color:#ffffff;padding:14px 24px;border-radius:6px 6px 0 0;font-weight:bold;font-size:14px;letter-spacing:0.5px;\">CRITICAL RISK ALERT</div><div style=\"border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 6px 6px;\"><h2 style=\"color:#1a1a2e;margin-top:0;\">Hi {{ $json.name.split(' ')[0] || $json.name }},</h2><p>Our systems have detected that your account is at <strong style=\"color:#dc2626;\">critical risk</strong> of not getting full value from NovaSeat.</p><p>Your current churn probability is <strong>{{ ($json.churn_probability * 100).toFixed(1) }}%</strong>, which means we need to act now to ensure your team continues to benefit from the platform.</p><p>We take this very seriously and want to help immediately. Here is what we can do:</p><ul style=\"padding-left:20px;\"><li><strong>Schedule a priority success call</strong> with our team</li><li><strong>Get a personalized optimization plan</strong> for your event workflows</li><li><strong>Receive dedicated support</strong> for any open issues</li></ul><p><a href=\"https://cal.novaseat.dev/success-team\" style=\"display:inline-block;background:#dc2626;color:#ffffff;padding:14px 28px;border-radius:6px;text-decoration:none;font-weight:bold;margin:8px 0;\">Book an Urgent Call Now</a></p><p style=\"color:#6b7280;font-size:13px;\">Or reply directly to this email — a senior member of our Customer Success team will respond within 2 hours.</p><p style=\"margin-top:24px;\">We are here for you,<br/><strong>NovaSeat Customer Success</strong></p></div></div>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "send-critical-email",
+      "name": "Send Critical Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [800, -100]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "={{ $json.name.split(' ')[0] || $json.name }}, a quick tip to get more from NovaSeat",
+        "emailType": "html",
+        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:0;\"><div style=\"background:#f59e0b;color:#ffffff;padding:14px 24px;border-radius:6px 6px 0 0;font-weight:bold;font-size:14px;letter-spacing:0.5px;\">ACCOUNT CHECK-IN</div><div style=\"border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 6px 6px;\"><h2 style=\"color:#1a1a2e;margin-top:0;\">Hi {{ $json.name.split(' ')[0] || $json.name }},</h2><p>We have been looking at how {{ $json.company_name || 'your team' }} uses NovaSeat, and we noticed an area where we think we can help you get more value.</p>{{ $json.churn_drivers ? '<p>Based on our analysis, the main area we would like to help with is <strong>' + (typeof $json.churn_drivers === 'string' ? JSON.parse($json.churn_drivers) : $json.churn_drivers)[0].driver.replace(/_/g, ' ') + '</strong>.</p>' : '' }}<div style=\"background:#fffbeb;border-left:4px solid #f59e0b;padding:16px;margin:16px 0;border-radius:4px;\"><strong>Did you know?</strong> Companies similar to yours that optimize their event workflows see 40% higher attendee engagement within the first month.</div><p>We would love to walk you through some quick wins that could make a real difference:</p><p><a href=\"https://cal.novaseat.dev/success-team\" style=\"display:inline-block;background:#4f46e5;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;margin:8px 0;\">Book a 15-min Call</a></p><p style=\"color:#6b7280;font-size:13px;\">Or simply reply to this email — we read and respond to every message.</p><p style=\"margin-top:24px;\">Best regards,<br/><strong>The NovaSeat Team</strong></p></div></div>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "send-high-email",
+      "name": "Send High Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [800, 100]
+    },
+    {
+      "parameters": {},
+      "id": "no-action",
+      "name": "No Action",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Daily 09:00": {
+      "main": [
+        [{ "node": "Fetch Accounts", "type": "main", "index": 0 }]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [{ "node": "Fetch Accounts", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Accounts": {
+      "main": [
+        [{ "node": "Risk Router", "type": "main", "index": 0 }]
+      ]
+    },
+    "Risk Router": {
+      "main": [
+        [{ "node": "Send Critical Email", "type": "main", "index": 0 }],
+        [{ "node": "Send High Email", "type": "main", "index": 0 }],
+        [{ "node": "No Action", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "tags": [
+    { "name": "novaseat" },
+    { "name": "churn-prevention" }
+  ]
+}
