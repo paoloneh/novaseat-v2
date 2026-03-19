@@ -94,7 +94,7 @@
       "name": "Send Critical Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [800, -100]
+      "position": [1060, -100]
     },
     {
       "parameters": {
@@ -110,6 +110,26 @@
       "name": "Send High Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
+      "position": [1060, 100]
+    },
+    {
+      "parameters": {
+        "maxItems": 1
+      },
+      "id": "limit-critical",
+      "name": "Limit Critical (1)",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [800, -100]
+    },
+    {
+      "parameters": {
+        "maxItems": 1
+      },
+      "id": "limit-high",
+      "name": "Limit High (1)",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
       "position": [800, 100]
     },
     {
@@ -139,9 +159,19 @@
     },
     "Risk Router": {
       "main": [
-        [{ "node": "Send Critical Email", "type": "main", "index": 0 }],
-        [{ "node": "Send High Email", "type": "main", "index": 0 }],
+        [{ "node": "Limit Critical (1)", "type": "main", "index": 0 }],
+        [{ "node": "Limit High (1)", "type": "main", "index": 0 }],
         [{ "node": "No Action", "type": "main", "index": 0 }]
+      ]
+    },
+    "Limit Critical (1)": {
+      "main": [
+        [{ "node": "Send Critical Email", "type": "main", "index": 0 }]
+      ]
+    },
+    "Limit High (1)": {
+      "main": [
+        [{ "node": "Send High Email", "type": "main", "index": 0 }]
       ]
     }
   },
