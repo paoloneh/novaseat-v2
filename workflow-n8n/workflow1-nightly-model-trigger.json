@@ -69,7 +69,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"displayName\": \"novaseat-churn-scoring-{{ $now.format('yyyy-MM-dd-HHmmss') }}\",\n  \"gcsNotebookSource\": {\n    \"uri\": \"{{ $json.notebookGcsUri }}\"\n  },\n  \"notebookRuntimeTemplateResourceName\": \"projects/{{ $json.projectId }}/locations/{{ $json.location }}/notebookRuntimeTemplates/{{ $json.runtimeTemplate }}\",\n  \"gcsOutputUri\": \"{{ $json.outputGcsPrefix }}/{{ $now.format('yyyy-MM-dd') }}\",\n  \"serviceAccount\": \"{{ $json.saClientEmail }}\"\n}",
+        "jsonBody": "={\n  \"displayName\": \"novaseat-churn-scoring-{{ $now.format('yyyy-MM-dd-HHmmss') }}\",\n  \"gcsNotebookSource\": {\n    \"uri\": \"{{ $json.notebookGcsUri }}\"\n  },\n  \"notebookRuntimeTemplateResourceName\": \"projects/{{ $json.projectId }}/locations/{{ $json.location }}/notebookRuntimeTemplates/{{ $json.runtimeTemplate }}\",\n  \"gcsOutputUri\": \"{{ $json.outputGcsPrefix ? $json.outputGcsPrefix + '/' + $now.format('yyyy-MM-dd') : '' }}\",\n  \"serviceAccount\": \"novaseat-colab-runner@{{ $json.projectId }}.iam.gserviceaccount.com\"\n}",
         "options": {
           "timeout": 30000,
           "allowUnauthorizedCerts": false
@@ -85,7 +85,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extract the execution job name from the API response for polling.\nconst response = $input.first().json;\nconst config = $('Get Access Token').first().json;\n\nreturn [{\n  json: {\n    ...config,\n    executionJobName: response.name || '',\n    executionJobState: response.state || 'STATE_UNSPECIFIED',\n  }\n}];"
+        "jsCode": "// Extract the execution job name from the API response for polling.\n// The API may return an operation wrapper (jobs/.../operations/...).\n// Strip the /operations/... suffix to get the actual job resource name.\nconst response = $input.first().json;\nconst config = $('Get Access Token').first().json;\n\nlet jobName = response.name || '';\nif (jobName.includes('/operations/')) {\n  jobName = jobName.split('/operations/')[0];\n}\n\nreturn [{\n  json: {\n    ...config,\n    executionJobName: jobName,\n    executionJobState: response.jobState || 'PENDING',\n  }\n}];"
       },
       "id": "parse-execution-response",
       "name": "Parse Execution Response",
@@ -95,7 +95,7 @@
     },
     {
       "parameters": {
-        "amount": 30,
+        "amount": 10,
         "unit": "seconds"
       },
       "id": "wait-for-scoring",
@@ -128,7 +128,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Check if the notebook execution has completed, failed, or is still running.\nconst response = $input.first().json;\nconst config = $('Get Access Token').first().json;\n// Vertex AI returns states like JOB_STATE_SUCCEEDED — strip the prefix for comparison.\nconst rawState = (response.state || 'UNKNOWN').toUpperCase();\nconst state = rawState.replace('JOB_STATE_', '');\n\nconst terminalStates = ['SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED'];\nconst isComplete = state === 'SUCCEEDED';\nconst isFailed = ['FAILED', 'CANCELLED', 'EXPIRED'].includes(state);\nconst isRunning = !terminalStates.includes(state);\n\nreturn [{\n  json: {\n    ...config,\n    executionState: state,\n    isComplete,\n    isFailed,\n    isRunning,\n    error: response.error || null,\n  }\n}];"
+        "jsCode": "// Check if the notebook execution has completed, failed, or is still running.\n// The Vertex AI API returns the state in the 'jobState' field\n// with values like JOB_STATE_SUCCEEDED, JOB_STATE_RUNNING, etc.\nconst response = $input.first().json;\nconst config = $('Get Access Token').first().json;\nconst rawState = (response.jobState || 'UNKNOWN').toUpperCase();\n\nconst terminalStates = ['JOB_STATE_SUCCEEDED', 'JOB_STATE_FAILED', 'JOB_STATE_CANCELLED', 'JOB_STATE_EXPIRED'];\nconst isComplete = rawState === 'JOB_STATE_SUCCEEDED';\nconst isFailed = ['JOB_STATE_FAILED', 'JOB_STATE_CANCELLED', 'JOB_STATE_EXPIRED'].includes(rawState);\nconst isRunning = !terminalStates.includes(rawState);\n\nreturn [{\n  json: {\n    ...config,\n    executionState: rawState,\n    isComplete,\n    isFailed,\n    isRunning,\n    gcsOutputUri: response.gcsOutputUri || '',\n    error: response.error || null,\n  }\n}];"
       },
       "id": "check-execution-state",
       "name": "Check Execution State",
