@@ -26,7 +26,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, name, email, company_name, risk_tier, churn_probability, annual_revenue, churn_drivers FROM accounts;",
+        "query": "SELECT id, name, email, company_name, risk_tier, churn_probability, annual_revenue, churn_drivers FROM accounts WHERE risk_tier IN ('High', 'Critical') AND intervention_status = 'None';",
         "options": {}
       },
       "id": "fetch-accounts",
@@ -96,7 +96,7 @@
       "name": "Send Critical Email",
       "type": "n8n-nodes-resend.resend",
       "typeVersion": 1,
-      "position": [1060, -100],
+      "position": [800, -100],
       "credentials": {
         "resendApi": {
           "id": "ZdsvkSPEJZdaZJ1l",
@@ -120,33 +120,13 @@
       "name": "Send High Email",
       "type": "n8n-nodes-resend.resend",
       "typeVersion": 1,
-      "position": [1060, 100],
+      "position": [800, 100],
       "credentials": {
         "resendApi": {
           "id": "ZdsvkSPEJZdaZJ1l",
           "name": "Resend account"
         }
       }
-    },
-    {
-      "parameters": {
-        "maxItems": 1
-      },
-      "id": "limit-critical",
-      "name": "Limit Critical (1)",
-      "type": "n8n-nodes-base.limit",
-      "typeVersion": 1,
-      "position": [800, -100]
-    },
-    {
-      "parameters": {
-        "maxItems": 1
-      },
-      "id": "limit-high",
-      "name": "Limit High (1)",
-      "type": "n8n-nodes-base.limit",
-      "typeVersion": 1,
-      "position": [800, 100]
     },
     {
       "parameters": {},
@@ -175,19 +155,9 @@
     },
     "Risk Router": {
       "main": [
-        [{ "node": "Limit Critical (1)", "type": "main", "index": 0 }],
-        [{ "node": "Limit High (1)", "type": "main", "index": 0 }],
+        [{ "node": "Send Critical Email", "type": "main", "index": 0 }],
+        [{ "node": "Send High Email", "type": "main", "index": 0 }],
         [{ "node": "No Action", "type": "main", "index": 0 }]
-      ]
-    },
-    "Limit Critical (1)": {
-      "main": [
-        [{ "node": "Send Critical Email", "type": "main", "index": 0 }]
-      ]
-    },
-    "Limit High (1)": {
-      "main": [
-        [{ "node": "Send High Email", "type": "main", "index": 0 }]
       ]
     }
   },
