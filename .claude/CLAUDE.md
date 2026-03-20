@@ -73,4 +73,73 @@ IF risk_tier = "Medium"
 
 - Database runs via Docker Compose (`docker-compose.yml`)
 - Colab notebooks are designed to run from GitHub
-- n8n workflows are configured externally (not stored in this repo)
+
+### n8n Workflow Management
+
+#### Workflow files (`workflow-n8n/`)
+
+n8n workflows are stored as JSON files in the `workflow-n8n/` directory. Each file represents a single workflow exported from n8n. File naming convention uses a numbered prefix matching the workflow number:
+
+```
+workflow-n8n/
+├── workflow1-nightly-model-trigger.json
+├── workflow2-churn-alert-monitor.json
+├── workflow4-weekly-reporting.json
+└── ...
+```
+
+- Files must be valid JSON objects with a `"name"` key at the top level (the workflow name used for upsert matching).
+- Workflow JSON should **not** contain credential secrets — the sync script injects credentials at deploy time.
+
+#### Syncing workflows to n8n (`scripts/sync_n8n_workflows.py`)
+
+The sync script performs an **upsert by workflow name**: if a workflow with the same name exists in n8n it is updated, otherwise it is created.
+
+**Prerequisites**: set the following in `.env` (or as environment variables):
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `N8N_API_KEY` | Yes | n8n instance API key |
+| `N8N_BASE_URL` | No | n8n base URL (default: `http://localhost:5678`) |
+| `N8N_POSTGRES_CREDENTIAL_ID` | No | Existing n8n credential ID for Postgres nodes |
+| `N8N_POSTGRES_CREDENTIAL_NAME` | No | Credential name to look up in n8n (default: `NovaSeat PostgreSQL`) |
+| `N8N_SMTP_CREDENTIAL_ID` | No | Existing n8n credential ID for email nodes |
+| `N8N_SMTP_CREDENTIAL_NAME` | No | SMTP credential name to look up (default: `NovaSeat SMTP`) |
+| `N8N_RESEND_CREDENTIAL_ID` | No | Existing n8n credential ID for Resend nodes |
+| `N8N_RESEND_CREDENTIAL_NAME` | No | Resend credential name to look up (default: `NovaSeat Resend`) |
+| `N8N_GOOGLE_CREDENTIAL_ID` | No | Existing n8n credential ID for Google Service Account |
+| `N8N_GOOGLE_CREDENTIAL_NAME` | No | Google credential name to look up (default: `NovaSeat Google Service Account`) |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Fallback | Used for inline Postgres credentials when no credential ID is set |
+
+**Workflow 1 (Nightly Model Trigger)** also requires these n8n environment variables (set in n8n Settings → Environment Variables):
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GOOGLE_CLOUD_PROJECT_ID` | Yes | GCP project ID for Colab Enterprise |
+| `GOOGLE_CLOUD_LOCATION` | No | GCP region (default: `us-central1`) |
+| `GOOGLE_CLOUD_NOTEBOOK_RUNTIME_TEMPLATE` | Yes | Vertex AI runtime template ID |
+| `COLAB_NOTEBOOK_GCS_URI` | Yes | GCS URI of the scoring notebook (`gs://...`) |
+| `COLAB_OUTPUT_GCS_PREFIX` | No | GCS prefix for execution output |
+| `DATA_TEAM_EMAIL` | No | Failure notification recipient (default: `data-team@novaseat.dev`) |
+| `ALERT_FROM_EMAIL` | No | Sender email for alerts (default: `noreply@novaseat.dev`) |
+
+**Usage**:
+
+```bash
+# Sync all workflows from workflow-n8n/ to the local n8n instance
+python scripts/sync_n8n_workflows.py
+
+# Dry run — show what would be created/updated without making changes
+python scripts/sync_n8n_workflows.py --dry-run
+
+# Point to a different n8n instance
+python scripts/sync_n8n_workflows.py --base-url https://n8n.example.com --api-key <key>
+
+# Sync from a custom directory
+python scripts/sync_n8n_workflows.py --workflows-dir /path/to/workflows
+```
+
+**Credential injection**: the script automatically injects credentials into Postgres and email nodes at sync time. Resolution order:
+1. Explicit credential ID from env (`N8N_POSTGRES_CREDENTIAL_ID` / `N8N_SMTP_CREDENTIAL_ID`)
+2. Lookup by credential name in n8n
+3. (Postgres only) Inline connection from `POSTGRES_*` env vars

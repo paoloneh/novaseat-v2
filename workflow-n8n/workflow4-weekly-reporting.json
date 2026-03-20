@@ -1,0 +1,158 @@
+{
+  "name": "WF4 — Weekly Reporting",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 8 * * 1" }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every Monday 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  week_start,\n  accounts_intercepted,\n  conversations_started,\n  churn_prevented,\n  csm_escalations,\n  messages_sent,\n  messages_replied\nFROM v_weekly_stats\nWHERE week_start = date_trunc('week', CURRENT_DATE - INTERVAL '7 days')::DATE\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "fetch-weekly-stats",
+      "name": "Fetch Weekly Stats",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [260, 100]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  COUNT(*) FILTER (WHERE risk_tier = 'Critical') AS critical_count,\n  COUNT(*) FILTER (WHERE risk_tier = 'High')     AS high_count,\n  COUNT(*) FILTER (WHERE risk_tier = 'Medium')   AS medium_count,\n  COUNT(*) FILTER (WHERE risk_tier = 'Low')      AS low_count,\n  COUNT(*)                                        AS total_accounts,\n  ROUND(AVG(churn_probability)::NUMERIC, 4)      AS avg_churn_prob\nFROM accounts\nWHERE churn_probability IS NOT NULL;",
+        "options": {}
+      },
+      "id": "fetch-risk-distribution",
+      "name": "Fetch Risk Distribution",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-data",
+      "name": "Merge Stats",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [520, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── Build Weekly Digest HTML ──\n\nconst stats = $input.all()[0].json;\n\nconst weekStart = stats.week_start || new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);\nconst weekEnd = new Date(new Date(weekStart).getTime() + 6 * 86400000).toISOString().slice(0, 10);\n\nconst intercepted   = stats.accounts_intercepted   || 0;\nconst conversations = stats.conversations_started   || 0;\nconst prevented     = stats.churn_prevented          || 0;\nconst escalations   = stats.csm_escalations          || 0;\nconst sent          = stats.messages_sent             || 0;\nconst replied       = stats.messages_replied           || 0;\nconst replyRate     = sent > 0 ? ((replied / sent) * 100).toFixed(1) : '0.0';\n\nconst critical = stats.critical_count || 0;\nconst high     = stats.high_count     || 0;\nconst medium   = stats.medium_count   || 0;\nconst low      = stats.low_count      || 0;\nconst total    = stats.total_accounts || 0;\nconst avgProb  = stats.avg_churn_prob || 0;\n\nconst kpiRow = (label, value, color) =>\n  `<td style=\"text-align:center;padding:16px;\">`\n  + `<div style=\"font-size:32px;font-weight:bold;color:${color};\">${value}</div>`\n  + `<div style=\"font-size:13px;color:#6b7280;margin-top:4px;\">${label}</div>`\n  + `</td>`;\n\nconst riskBar = (label, count, color) => {\n  const pct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;\n  return `<tr>`\n    + `<td style=\"padding:6px 12px;font-weight:600;color:${color};\">${label}</td>`\n    + `<td style=\"padding:6px 12px;text-align:right;\">${count}</td>`\n    + `<td style=\"padding:6px 12px;text-align:right;color:#6b7280;\">${pct}%</td>`\n    + `</tr>`;\n};\n\nconst html = `\n<div style=\"font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;background:#ffffff;\">\n  <div style=\"text-align:center;margin-bottom:32px;\">\n    <h1 style=\"color:#1a1a2e;margin:0;\">NovaSeat — Weekly Churn Report</h1>\n    <p style=\"color:#6b7280;margin:8px 0 0;\">${weekStart} to ${weekEnd}</p>\n  </div>\n\n  <table style=\"width:100%;border-collapse:collapse;margin-bottom:32px;\">\n    <tr style=\"background:#f8f7ff;border-radius:8px;\">\n      ${kpiRow('Accounts Intercepted', intercepted, '#4f46e5')}\n      ${kpiRow('Conversations Started', conversations, '#0891b2')}\n      ${kpiRow('Churn Prevented', prevented, '#16a34a')}\n      ${kpiRow('CSM Escalations', escalations, '#dc2626')}\n    </tr>\n  </table>\n\n  <table style=\"width:100%;border-collapse:collapse;margin-bottom:32px;\">\n    <tr style=\"background:#f8f7ff;\">\n      ${kpiRow('Messages Sent', sent, '#4f46e5')}\n      ${kpiRow('Replies Received', replied, '#0891b2')}\n      ${kpiRow('Reply Rate', replyRate + '%', '#16a34a')}\n    </tr>\n  </table>\n\n  <h2 style=\"color:#1a1a2e;font-size:18px;margin-bottom:12px;\">Current Risk Distribution</h2>\n  <table style=\"width:100%;border-collapse:collapse;margin-bottom:32px;\">\n    <thead><tr style=\"border-bottom:2px solid #e5e7eb;\">\n      <th style=\"text-align:left;padding:8px 12px;\">Tier</th>\n      <th style=\"text-align:right;padding:8px 12px;\">Accounts</th>\n      <th style=\"text-align:right;padding:8px 12px;\">%</th>\n    </tr></thead>\n    <tbody>\n      ${riskBar('Critical', critical, '#dc2626')}\n      ${riskBar('High', high, '#f59e0b')}\n      ${riskBar('Medium', medium, '#3b82f6')}\n      ${riskBar('Low', low, '#16a34a')}\n    </tbody>\n    <tfoot><tr style=\"border-top:2px solid #e5e7eb;font-weight:bold;\">\n      <td style=\"padding:8px 12px;\">Total</td>\n      <td style=\"padding:8px 12px;text-align:right;\">${total}</td>\n      <td style=\"padding:8px 12px;text-align:right;\">Avg prob: ${(avgProb * 100).toFixed(1)}%</td>\n    </tr></tfoot>\n  </table>\n\n  <p style=\"color:#9ca3af;font-size:12px;text-align:center;\">Generated automatically by NovaSeat Churn Prevention Platform</p>\n</div>\n`;\n\nreturn [{\n  json: {\n    weekStart,\n    weekEnd,\n    intercepted,\n    conversations,\n    prevented,\n    escalations,\n    sent,\n    replied,\n    replyRate: parseFloat(replyRate),\n    reportHtml: html,\n    reportData: {\n      risk_distribution: { critical, high, medium, low, total },\n      avg_churn_probability: avgProb,\n      kpis: { intercepted, conversations, prevented, escalations, sent, replied }\n    }\n  }\n}];"
+      },
+      "id": "build-report",
+      "name": "Build Report HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO weekly_reports (\n  week_start, week_end,\n  accounts_intercepted, conversations_started, churn_prevented,\n  csm_escalations, messages_sent, messages_replied,\n  report_data, sent_to, sent_at\n) VALUES (\n  '{{ $json.weekStart }}',\n  '{{ $json.weekEnd }}',\n  {{ $json.intercepted }},\n  {{ $json.conversations }},\n  {{ $json.prevented }},\n  {{ $json.escalations }},\n  {{ $json.sent }},\n  {{ $json.replied }},\n  '{{ JSON.stringify($json.reportData) }}'::jsonb,\n  '{{HEAD_OF_CS_EMAIL}}',\n  NOW()\n)\nON CONFLICT (week_start) DO UPDATE SET\n  accounts_intercepted = EXCLUDED.accounts_intercepted,\n  conversations_started = EXCLUDED.conversations_started,\n  churn_prevented       = EXCLUDED.churn_prevented,\n  csm_escalations       = EXCLUDED.csm_escalations,\n  messages_sent         = EXCLUDED.messages_sent,\n  messages_replied      = EXCLUDED.messages_replied,\n  report_data           = EXCLUDED.report_data,\n  sent_at               = NOW();",
+        "options": {}
+      },
+      "id": "save-report",
+      "name": "Save Report to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "operation": "send",
+        "from": "=reports@novaseat.dev",
+        "to": "={{HEAD_OF_CS_EMAIL}}",
+        "subject": "=NovaSeat Weekly Churn Report — {{ $json.weekStart }} to {{ $json.weekEnd }}",
+        "emailFormat": "html",
+        "useTemplate": false,
+        "html": "={{ $json.reportHtml }}",
+        "additionalOptions": {}
+      },
+      "id": "send-report",
+      "name": "Send Report Email",
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [1240, 200],
+      "credentials": {
+        "resendApi": {
+          "id": "ZdsvkSPEJZdaZJ1l",
+          "name": "Resend account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Monday 08:00": {
+      "main": [
+        [{ "node": "Fetch Weekly Stats", "type": "main", "index": 0 }]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [{ "node": "Fetch Weekly Stats", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Weekly Stats": {
+      "main": [
+        [{ "node": "Merge Stats", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Risk Distribution": {
+      "main": [
+        [{ "node": "Merge Stats", "type": "main", "index": 1 }]
+      ]
+    },
+    "Merge Stats": {
+      "main": [
+        [{ "node": "Build Report HTML", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Report HTML": {
+      "main": [
+        [{ "node": "Save Report to DB", "type": "main", "index": 0 }]
+      ]
+    },
+    "Save Report to DB": {
+      "main": [
+        [{ "node": "Send Report Email", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "tags": [
+    { "name": "novaseat" },
+    { "name": "churn-prevention" }
+  ]
+}

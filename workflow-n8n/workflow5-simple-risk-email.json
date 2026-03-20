@@ -1,0 +1,176 @@
+{
+  "name": "WF5 — Simple Risk Email",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 9 * * *" }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, email, company_name, risk_tier, churn_probability, annual_revenue, churn_drivers FROM accounts WHERE risk_tier IN ('High', 'Critical') AND intervention_status = 'None';",
+        "options": {}
+      },
+      "id": "fetch-accounts",
+      "name": "Fetch Accounts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [260, 100]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.risk_tier }}",
+                    "rightValue": "Critical",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "Critical"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.risk_tier }}",
+                    "rightValue": "High",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "High"
+            }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      },
+      "id": "risk-router",
+      "name": "Risk Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [520, 100]
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "operation": "send",
+        "from": "=info@safesphere.it",
+        "to": "={{ $json.email }}",
+        "subject": "={{ $json.name.split(' ')[0] || $json.name }}, we would love to help you get the most out of NovaSeat",
+        "emailFormat": "html",
+        "useTemplate": false,
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:0;\"><div style=\"background:#f3f4f6;padding:20px 24px;border-radius:6px 6px 0 0;text-align:center;\"><h1 style=\"color:#374151;margin:0;font-size:20px;font-weight:600;\">NovaSeat</h1></div><div style=\"border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 6px 6px;\"><h2 style=\"color:#374151;margin-top:0;font-weight:normal;\">Hi {{ $json.name.split(' ')[0] || $json.name }},</h2><p style=\"color:#4b5563;line-height:1.6;\">Thank you for being part of the NovaSeat community. We are reaching out because we believe there may be some features and capabilities that could bring even more value to {{ $json.company_name || 'your team' }}.</p><p style=\"color:#4b5563;line-height:1.6;\">NovaSeat offers a range of tools designed to simplify corporate event management — from AI-powered agenda building to real-time attendee engagement and post-event analytics. We would love the opportunity to walk you through what is available and explore how it might fit your needs.</p><p style=\"color:#4b5563;line-height:1.6;\">If you are interested, we would be happy to arrange a short, no-obligation call with one of our team members to answer any questions and share a few ideas tailored to your organisation.</p><p style=\"text-align:center;margin:24px 0;\"><a href=\"https://cal.novaseat.dev/success-team\" style=\"display:inline-block;background:#6b7280;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:500;\">Book an Appointment</a></p><p style=\"color:#6b7280;font-size:13px;line-height:1.5;\">Of course, there is no obligation at all — feel free to simply reply to this email if you would prefer to chat informally.</p><p style=\"color:#4b5563;margin-top:24px;\">Warm regards,<br/><strong>The NovaSeat Team</strong></p></div></div>",
+        "additionalOptions": {}
+      },
+      "id": "send-critical-email",
+      "name": "Send Critical Email",
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [800, -100],
+      "credentials": {
+        "resendApi": {
+          "id": "ZdsvkSPEJZdaZJ1l",
+          "name": "Resend account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "operation": "send",
+        "from": "=info@safesphere.it",
+        "to": "={{ $json.email }}",
+        "subject": "={{ $json.name.split(' ')[0] || $json.name }}, discover what NovaSeat can do for your events",
+        "emailFormat": "html",
+        "useTemplate": false,
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:0;\"><div style=\"background:#f3f4f6;padding:20px 24px;border-radius:6px 6px 0 0;text-align:center;\"><h1 style=\"color:#374151;margin:0;font-size:20px;font-weight:600;\">NovaSeat</h1></div><div style=\"border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 6px 6px;\"><h2 style=\"color:#374151;margin-top:0;font-weight:normal;\">Hi {{ $json.name.split(' ')[0] || $json.name }},</h2><p style=\"color:#4b5563;line-height:1.6;\">We hope things are going well at {{ $json.company_name || 'your organisation' }}. We wanted to take a moment to share a few ideas on how NovaSeat could help streamline your event management.</p><div style=\"background:#f9fafb;border-left:3px solid #d1d5db;padding:16px;margin:16px 0;border-radius:4px;\"><p style=\"color:#4b5563;margin:0;line-height:1.6;\">Many teams similar to yours have found value in features like our AI agenda builder, live polling, and post-event analytics. We would be happy to show you how these could work for your specific needs.</p></div><p style=\"color:#4b5563;line-height:1.6;\">If you are curious to learn more, we would love to set up a brief call at a time that works for you — completely informal, no strings attached.</p><p style=\"text-align:center;margin:24px 0;\"><a href=\"https://cal.novaseat.dev/success-team\" style=\"display:inline-block;background:#6b7280;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:500;\">Book a Short Call</a></p><p style=\"color:#6b7280;font-size:13px;line-height:1.5;\">Alternatively, feel free to reply to this email — we are always happy to hear from you.</p><p style=\"color:#4b5563;margin-top:24px;\">Best regards,<br/><strong>The NovaSeat Team</strong></p></div></div>",
+        "additionalOptions": {}
+      },
+      "id": "send-high-email",
+      "name": "Send High Email",
+      "type": "n8n-nodes-resend.resend",
+      "typeVersion": 1,
+      "position": [800, 100],
+      "credentials": {
+        "resendApi": {
+          "id": "ZdsvkSPEJZdaZJ1l",
+          "name": "Resend account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "no-action",
+      "name": "No Action",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Daily 09:00": {
+      "main": [
+        [{ "node": "Fetch Accounts", "type": "main", "index": 0 }]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [{ "node": "Fetch Accounts", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Accounts": {
+      "main": [
+        [{ "node": "Risk Router", "type": "main", "index": 0 }]
+      ]
+    },
+    "Risk Router": {
+      "main": [
+        [{ "node": "Send Critical Email", "type": "main", "index": 0 }],
+        [{ "node": "Send High Email", "type": "main", "index": 0 }],
+        [{ "node": "No Action", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "tags": [
+    { "name": "novaseat" },
+    { "name": "churn-prevention" }
+  ]
+}

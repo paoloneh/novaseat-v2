@@ -1,0 +1,75 @@
+{
+  "auc_roc": 1.0,
+  "accuracy": 0.9993,
+  "precision": 1.0,
+  "recall": 0.9973,
+  "f1": 0.9987,
+  "cv_auc_mean": 0.9993,
+  "cv_auc_std": 0.0013,
+  "scale_pos_weight": 2.77,
+  "train_size": 5634,
+  "test_size": 1409,
+  "feature_importance": {
+    "support_ticket_velocity": 0.9914000034332275,
+    "days_since_last_login": 0.0066999997943639755,
+    "events_per_month_trend": 0.0017999999690800905,
+    "tenure_months": 9.999999747378752e-05,
+    "monthly_charges": 9.999999747378752e-05,
+    "annual_revenue": 0.0,
+    "has_dedicated_csm": 0.0,
+    "payment_auto": 0.0,
+    "senior_citizen": 0.0,
+    "has_partner": 0.0,
+    "has_dependents": 0.0,
+    "paperless_billing": 0.0,
+    "online_security": 0.0,
+    "online_backup": 0.0,
+    "streaming_tv": 0.0,
+    "plan_Pro": 0.0,
+    "plan_Enterprise": 0.0,
+    "tier_Premium": 0.0,
+    "tier_Free": 0.0
+  },
+  "risk_tiers": {
+    "Low": [
+      0.0,
+      0.3
+    ],
+    "Medium": [
+      0.3,
+      0.5
+    ],
+    "High": [
+      0.5,
+      0.7
+    ],
+    "Critical": [
+      0.7,
+      1.0
+    ]
+  },
+  "trained_at": "2026-03-19T10:11:36.358564+00:00",
+  "model_type": "XGBClassifier",
+  "n_features": 19,
+  "feature_columns": [
+    "tenure_months",
+    "monthly_charges",
+    "annual_revenue",
+    "days_since_last_login",
+    "events_per_month_trend",
+    "support_ticket_velocity",
+    "has_dedicated_csm",
+    "payment_auto",
+    "senior_citizen",
+    "has_partner",
+    "has_dependents",
+    "paperless_billing",
+    "online_security",
+    "online_backup",
+    "streaming_tv",
+    "plan_Pro",
+    "plan_Enterprise",
+    "tier_Premium",
+    "tier_Free"
+  ]
+}
